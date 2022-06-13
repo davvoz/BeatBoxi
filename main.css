@@ -1,0 +1,17 @@
+.key{
+  background-color: tomato;
+    color: white;
+    padding: 5px;
+    border-radius: 5px;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    float: left;
+    border: 1px solid #ccc;
+    width: 100px;
+}
+table{
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid #ccc;
+}
