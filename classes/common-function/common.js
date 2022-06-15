@@ -146,7 +146,7 @@ export class Button {
     }
 
     draw() {
-        let testo ;
+        let testo;
         if (this.isToggle) {
             if (this.toggleState) {
                 //disegna qua rettangolo
@@ -186,7 +186,7 @@ export class Button {
             this.context.strokeStyle = this.config.borderColor;
             this.context.strokeText(textLine, this.config.x + (this.config.width - this.context.measureText(textLine).width) / 2, this.config.y + this.config.fontSize * (index + 1));
         });
-        if(this.isHover)    {
+        if (this.isHover) {
             this.context.fillStyle = this.config.hoverColor;
             this.context.fillRect(this.config.x, this.config.y, this.config.width, this.config.height);
             this.context.strokeStyle = this.config.borderColor;
@@ -199,7 +199,6 @@ export class Button {
                 this.context.strokeText(textLine, this.config.x + (this.config.width - this.context.measureText(textLine).width) / 2, this.config.y + this.config.fontSize * (index + 1));
             });
         }
-
     }
 
     click() {
@@ -218,15 +217,97 @@ export class Button {
             height: this.config.height
         });
     }
-    hover() {
-        this.isHover = true;
-        this.draw();
-    }
-    unhover() {
-        this.isHover = false;
-        this.draw();
-    }
-    
 }
+
+export class RadioButton {
+    constructor(configIn, contextIn, callback) {
+        this.attivato = false;
+        this.context = contextIn;
+        this.callback = callback;
+        this.config = configIn;
+        this.disattivatoConfig = {
+            x: configIn.x,
+            y: configIn.y,
+            width: configIn.width,
+            height: configIn.height,
+            color: '#ffffff',
+            borderColor: '#000000',
+            borderWidth: 1,
+            font: 'Arial',
+            fontSize: configIn.fontSize,
+            fontColor: '#000000',
+            //scrivi il parametero e lo stato
+            text: configIn.text + ': ' + '\ndisattivato'
+        }
+        //attivato è tutto il contrario
+        this.attivatoConfig = {
+            x: configIn.x,
+            y: configIn.y,
+            width: configIn.width,
+            height: configIn.height,
+            color: '#000000',
+            borderColor: '#ffffff',
+            borderWidth: 1,
+            font: 'Arial',
+            fontSize: configIn.fontSize,
+            fontColor: '#ffffff',
+            //scrivi il parametero e lo stato
+            text: configIn.text + ': ' + '\nattivato'
+        }
+        this.draw();
+    }
+
+    draw() {
+        if(this.attivato){
+            this.context.fillStyle = this.attivatoConfig.color;
+            this.context.fillRect(this.attivatoConfig.x, this.attivatoConfig.y, this.attivatoConfig.width, this.attivatoConfig.height);
+            this.context.strokeStyle = this.attivatoConfig.borderColor;
+            this.context.lineWidth = this.attivatoConfig.borderWidth;
+            this.context.strokeRect(this.attivatoConfig.x, this.attivatoConfig.y, this.attivatoConfig.width, this.attivatoConfig.height);
+            this.context.fillStyle = this.attivatoConfig.fontColor;
+            this.context.font = `${this.attivatoConfig.fontSize}px ${this.attivatoConfig.font}`;
+            const textLines = this.attivatoConfig.text.split('\n');
+            this.context.textAlign = 'left';
+            textLines.forEach((textLine, index) => {
+                this.context.fillText(textLine, this.attivatoConfig.x + (this.attivatoConfig.width - this.context.measureText(textLine).width) / 2, this.attivatoConfig.y + this.attivatoConfig.fontSize * (index + 1));
+                this.context.strokeStyle = this.attivatoConfig.borderColor;
+                this.context.strokeText(textLine, this.attivatoConfig.x + (this.attivatoConfig.width - this.context.measureText(textLine).width) / 2, this.attivatoConfig.y + this.attivatoConfig.fontSize * (index + 1));
+            });
+        }   else {   
+            this.context.fillStyle = this.disattivatoConfig.color;
+            this.context.fillRect(this.disattivatoConfig.x, this.disattivatoConfig.y, this.disattivatoConfig.width, this.disattivatoConfig.height);
+            this.context.strokeStyle = this.disattivatoConfig.borderColor;
+            this.context.lineWidth = this.disattivatoConfig.borderWidth;
+            this.context.strokeRect(this.disattivatoConfig.x, this.disattivatoConfig.y, this.disattivatoConfig.width, this.disattivatoConfig.height);
+            this.context.fillStyle = this.disattivatoConfig.fontColor;
+            this.context.font = `${this.disattivatoConfig.fontSize}px ${this.disattivatoConfig.font}`;
+            const textLines = this.disattivatoConfig.text.split('\n');
+            this.context.textAlign = 'left';
+            textLines.forEach((textLine, index) => {
+                this.context.fillText(textLine, this.disattivatoConfig.x + (this.disattivatoConfig.width - this.context.measureText(textLine).width) / 2, this.disattivatoConfig.y + this.disattivatoConfig.fontSize * (index + 1));
+                this.context.strokeStyle = this.disattivatoConfig.borderColor;
+                this.context.strokeText(textLine, this.disattivatoConfig.x + (this.disattivatoConfig.width - this.context.measureText(textLine).width) / 2, this.disattivatoConfig.y + this.disattivatoConfig.fontSize * (index + 1));
+            });
+        }
+    }
+
+    click() {
+        this.attivato = !this.attivato;
+        this.draw();
+        this.callback();
+    }
+
+    isInside(x, y) {
+        return Common.isInside(x, y, {
+            x: this.config.x,
+            y: this.config.y,
+            width: this.config.width,
+            height: this.config.height
+        });
+    }
+
+}
+
+
 
 export default Common;

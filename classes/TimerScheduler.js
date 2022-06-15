@@ -10,7 +10,6 @@ export class TimerScheduler {
         this.noteTime = 0.0;
         this.startTime = 0.0;
         this.contextPlayTime = 0.0;
-        console.log('TimerScheduler created', this);
 
     }
 

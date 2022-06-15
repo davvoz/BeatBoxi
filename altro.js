@@ -1,22 +1,22 @@
-import { Common, Button } from "./classes/common-function/common.js";
+import { Common, Button, RadioButton } from "./classes/common-function/common.js";
 import TimerScheduler from "./classes/TimerScheduler.js";
 
 document.body.style.overflow = 'hidden';
 document.body.style.margin = '0';
-var canvas = document.createElement('canvas');
+const canvas = document.createElement('canvas');
 canvas.width = window.innerWidth * 0.9;
 canvas.height = window.innerHeight * 0.8;
-//mettila al centro
 canvas.style.position = 'absolute';
 canvas.style.top = '50%';
 canvas.style.left = '50%';
 canvas.style.marginLeft = '-' + canvas.width / 2 + 'px';
 canvas.style.marginTop = '-' + canvas.height / 2 + 'px';
 canvas.style.border = '1px solid black';
-//crea un audiocontext
+document.body.appendChild(canvas);
+const ctx = canvas.getContext('2d');
+ctx.fillStyle = 'green';
+ctx.fillRect(0, 0, canvas.width, canvas.height);
 const audioCtx = new AudioContext();
-
-//crea una funzione per caricareil kick e suonaro in un sampler più tardi
 
 const audioBufferKick = await fetch(new URL('./assets/wav/kick27.wav', import.meta.url))
   .then(res => res.arrayBuffer())
@@ -30,67 +30,67 @@ const audioBufferhitht = await fetch(new URL('./assets/wav/hitht.wav', import.me
   .then(res => res.arrayBuffer())
   .then(ArrayBuffer => audioCtx.decodeAudioData(ArrayBuffer));
 
-  //load this C:\Users\Compiuter\Desktop\prova\assets\wav\dark_voice_08.wav
-  const audioBufferVox = await fetch(new URL('./assets/wav/dark_voice_08.wav', import.meta.url))
+const audioBufferVox = await fetch(new URL('./assets/wav/dark_voice_08.wav', import.meta.url))
   .then(res => res.arrayBuffer())
   .then(ArrayBuffer => audioCtx.decodeAudioData(ArrayBuffer));
 
-
 const mainBass = audioCtx.createOscillator();
 
-
-let maxLength = 32;
+const maxLength = 32;
 mainBass.type = 'sawtooth';
 mainBass.frequency.value = 60;
-//alza il volume del mainBass
-const gainNode = audioCtx.createGain();
+const gainNodeOscMainBass = audioCtx.createGain();
+gainNodeOscMainBass.gain.value = 1;
 
-gainNode.gain.value = 0.5;
-mainBass.connect(gainNode);
-gainNode.connect(audioCtx.destination);
+const filterMainBass = audioCtx.createBiquadFilter();
+filterMainBass.type = 'lowpass';
+filterMainBass.frequency.value = 1000;
+filterMainBass.Q.value = 1;
+
+const gainNodeMainBass = audioCtx.createGain();
+gainNodeMainBass.gain.value = 2;
+mainBass.connect(gainNodeOscMainBass);
+gainNodeOscMainBass.connect(filterMainBass);
+filterMainBass.connect(gainNodeMainBass);
+gainNodeMainBass.connect(audioCtx.destination);
+
 mainBass.start();
 
 const mainPad = audioCtx.createOscillator();
 mainPad.type = 'sawtooth';
 mainPad.frequency.value = 280;
-//gain
 const gainNodePad = audioCtx.createGain();
 gainNodePad.gain.value = 0.5;
-//reverb
 const convolver = audioCtx.createConvolver();
-//cerca convolver online
 
 convolver.buffer = await fetch(new URL('./assets/wav/reverbo.wav', import.meta.url))//C:\Users\Compiuter\Desktop\prova\assets\wav\reverbo.wav
   .then(res => res.arrayBuffer())
   .then(ArrayBuffer => audioCtx.decodeAudioData(ArrayBuffer));
-//connect
 gainNodePad.gain.value = 0.3;
-convolver.addEventListener  ('ended', () => {
-  console.log('ended');
-} , false);
-mainPad.addEventListener('start', () => {
-  console.log('start');
-} , false);
-mainPad.connect(gainNodePad);
+
+const midEnhancer = audioCtx.createBiquadFilter();
+midEnhancer.type = 'highpass';
+midEnhancer.frequency.value = 1000;
+midEnhancer.Q.value = 0.9;
+
+const autopanner = audioCtx.createPanner();
+const oscPanner = audioCtx.createOscillator();
+oscPanner.type = 'square';
+
+const gainNodeOscPanner = audioCtx.createGain();
+gainNodeOscPanner.gain.value = 1;
+oscPanner.connect(gainNodeOscPanner);
+gainNodeOscPanner.connect(autopanner.positionX);
+mainPad.connect(midEnhancer);
+midEnhancer.connect(gainNodePad);
 gainNodePad.connect(convolver);
-convolver.connect(audioCtx.destination);
+convolver.connect(autopanner);
+autopanner.connect(audioCtx.destination);
+oscPanner.start();
 mainPad.start();
 
-
-
-document.body.appendChild(canvas);
-var ctx = canvas.getContext('2d');
-ctx.fillStyle = 'green';
-ctx.fillRect(0, 0, canvas.width, canvas.height);
-//load assets\wav\kick27.wav
-
-const timerWorker = new Worker('./workers/eazy-timer.js');
-var u = 0;
-//const timer = new Timer(190, [tick], timerWorker, audioCtx);
-const timerScheduler = new TimerScheduler(120, [tick], audioCtx);
-
-
-let sfondo = {
+const timerScheduler = new TimerScheduler(360, [tick], audioCtx);
+const sfondo = {
   x: 0,
   y: 0,
   width: canvas.width,
@@ -99,76 +99,26 @@ let sfondo = {
   borderColor: '#000',
   borderWidth: 1
 }
-
-let configPlayButton = {
-  //posizionalo in alto a destra
-  x: canvas.width - 10 - 100,
-  y: 0 + 10,
-  width: 100,
-  height: 100,
-  text: 'Play\nthis\nshit',
-  toggleText: 'Pause\nthisshit',
-  color: '#af0',
-  toggleColor: '#0fa',
-  font: 'Arial',
-  fontSize: '30',
-  fontColor: '#0f0',
-  toggleFontColor: '#0f0',
-  borderColor: '#00f',
-  toggleBorderColor: '#2fa',
-  borderWidth: 2,
-  toggleBorderWidth: 2
-}
+let bottoneSelezionato = 0;
+//let counterFreqArmoniche = 0;
 let isStarted = false;
+let configPlayButton, configTimer, configHoldBass;
+inizializaConfigurazioneBottoni();
+let buttonPlay, buttonTimer, buttonHoldBass;
+inizializzaButtons();
+let kickTrack, snareTrack, hithtTrack, bassTrack, padTrack, voxTrack;
+inzializzaSamplersTraks();
+let scala1, scala2, scala3; inizializzaScale();
+let frequenzeScelte = scala1;
+let scala1RadioConfig, scala2RadioConfig, scala3RadioConfig;
+inizializzaConfigurazioneRadios();
+let scala1Radio, scala2Radio, scala3Radio;
+inizializzaRadios();
 
-const buttonPlay = new Button(configPlayButton, ctx, () => {
-  if (isStarted) {
-    timerScheduler.handleStop();
-    isStarted = false;
-  } else {
-    timerScheduler.handlePlay();
-    isStarted = true;
-  }
-}, true);
 buttonPlay.draw();
-//crea un controllo per il tempo input
-let configTimer = {
-  //posizionalo in alto a destra alla sinistra del play button
-  x: canvas.width - 220,
-  y: 0 + 10,
-  width: 100,
-  height: 100,
-  text: 'Aggiusta\nquando\nsi rompe',
-  color: '#f0a',
-  font: 'Arial',
-  fontSize: '20',
-  fontColor: '#000',
-  borderColor: '#00f',
-  borderWidth: 2
-};
-
-const buttonTimer = new Button(configTimer, ctx, () => {
-  //resetto il timer
-  u = 0;
-  //azzero i volumi
-  gainNode.gain.value = 0;
-  gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-  gainNodePad.gain.value = 0;
-  gainNodePad.gain.setValueAtTime(0, audioCtx.currentTime);
-
-
-}, false);
-
-
-
-let kickTrack = returnEmptyTrack();
-let snareTrack = returnEmptyTrack();
-let hithtTrack = returnEmptyTrack();
-let bassTrack = returnEmptyTrack();
-let padTrack = returnEmptyTrack();
-let voxTrack = returnEmptyTrack();
-//crea per ogni track un array di oggetti renderizzabili bottoni
-let oggettiRenderizzabili = [buttonTimer, buttonPlay];
+scala1Radio.attivato = true;
+const radioGroupScala = [scala1Radio, scala2Radio, scala3Radio];
+let oggettiRenderizzabili = [buttonTimer, buttonPlay, buttonHoldBass, radioGroupScala[0], radioGroupScala[1], radioGroupScala[2]];
 pushaBottoni(kickTrack, 0);
 pushaBottoni(snareTrack, 1);
 pushaBottoni(hithtTrack, 2);
@@ -176,11 +126,195 @@ pushaBottoni(bassTrack, 3);
 pushaBottoni(padTrack, 4);
 pushaBottoni(voxTrack, 5);
 
+let holdMainBass = false;
 renderCanvas();
 
-//array di frequenze armoniche
-let freqArmoniche =  [161.6, 93.7, 129.6, 149.2, 92.0, 140.0, 93.9, 123.2] ;//WTF!!! bella musica
-let counterFreqArmoniche = 0;
+function inizializzaRadios() {
+  scala1Radio = new RadioButton(scala1RadioConfig, ctx, () => {
+    callbackRadioButton(scala1, 0);
+  });
+
+  scala2Radio = new RadioButton(scala2RadioConfig, ctx, () => {
+    callbackRadioButton(scala2, 1);
+  });
+
+  scala3Radio = new RadioButton(scala3RadioConfig, ctx, () => {
+    callbackRadioButton(scala3, 2);
+  });
+  return { scala1Radio, scala2Radio, scala3Radio };
+}
+
+function inizializzaButtons() {
+  buttonPlay = new Button(configPlayButton, ctx, () => {
+    if (isStarted) {
+      timerScheduler.handleStop();
+      isStarted = false;
+    } else {
+      isStarted = true;
+      timerScheduler.handlePlay();
+    }
+  }, true);
+
+  buttonTimer = new Button(configTimer, ctx, () => {
+    gainNodeOscMainBass.gain.value = 0;
+    gainNodeOscMainBass.gain.setValueAtTime(0, audioCtx.currentTime);
+    gainNodePad.gain.value = 0;
+    gainNodePad.gain.setValueAtTime(0, audioCtx.currentTime);
+  }, false);
+
+  buttonHoldBass = new Button(configHoldBass, ctx, () => {
+    holdMainBass = !holdMainBass;
+  }, true);
+
+  return { buttonPlay, buttonTimer, buttonHoldBass };
+}
+
+function inzializzaSamplersTraks() {
+  kickTrack = returnEmptyTrack();
+  snareTrack = returnEmptyTrack();
+  hithtTrack = returnEmptyTrack();
+  bassTrack = returnEmptyTrack();
+  padTrack = returnEmptyTrack();
+  voxTrack = returnEmptyTrack();
+  return { kickTrack, snareTrack, hithtTrack, bassTrack, padTrack, voxTrack };
+}
+
+function inizializzaScale() {
+  scala1 = spostaRandomicamenteGliElementiDiUnArray([
+    161.6,
+    93.7,
+    129.6,
+    149.2,
+    92.0,
+    140.0,
+    93.9,
+    123.2
+  ]);
+  //scrivi le frequenze per una scala Mi♭ - Sol♭ - La♭ - La - Si♭ - Re♭ - Mi♭
+  scala2 = spostaRandomicamenteGliElementiDiUnArray([
+    110.0,
+    146.8,
+    164.8,
+    174.6,
+    164.8,
+    174.6,
+    146.8,
+    164.8]);
+  //converti in frequenze queste  note
+  //do         re           mib           fa             sol           lab              si♭
+  scala3 = spostaRandomicamenteGliElementiDiUnArray([
+    130.813,
+    138.591,
+    146.832,
+    155.563,
+    164.814,
+    174.614,
+    184.997,
+    195.998]);
+  return { scala1, scala2, scala3 };
+}
+
+function inizializaConfigurazioneBottoni() {
+  configPlayButton = {
+    //posizionalo in alto a destra
+    x: canvas.width - 10 - 100,
+    y: 0 + 10,
+    width: 100,
+    height: 100,
+    text: 'Play\nthis\nshit',
+    toggleText: 'Pause\nthisshit',
+    color: '#af0',
+    toggleColor: '#0fa',
+    font: 'Arial',
+    fontSize: '30',
+    fontColor: '#0f0',
+    toggleFontColor: '#0f0',
+    borderColor: '#00f',
+    toggleBorderColor: '#2fa',
+    borderWidth: 1,
+    toggleBorderWidth: 1
+  };
+  configTimer = {
+    x: canvas.width - 10 - 200,
+    y: 0 + 10,
+    width: 100,
+    height: 100,
+    text: 'Shot\nup',
+    color: '#f0a',
+    font: 'Arial',
+    fontSize: '30',
+    fontColor: '#000',
+    borderColor: '#00f',
+    borderWidth: 1
+  };
+  configHoldBass = {
+    x: canvas.width - 10 - 300,
+    y: 0 + 10,
+    width: 100,
+    height: 100,
+    text: 'Hold\nBass',
+    color: '#af0',
+    font: 'Arial',
+    fontSize: '30',
+    fontColor: '#0f0',
+    borderColor: '#00f',
+    borderWidth: 1,
+    toggleColor: '#0fa',
+    toggleBorderColor: '#2fa',
+    toggleBorderWidth: 1,
+    toggleText: 'Note\nBass'
+  }
+
+  return { configPlayButton, configTimer, configHoldBass };
+}
+
+function inizializzaConfigurazioneRadios() {
+  scala1RadioConfig = {
+    x: canvas.width - 10 - 300,
+    y: 0 + 10 + 100,
+    width: 100,
+    height: 100,
+    borderWidth: 2,
+    fontSize: '20',
+    text: 'Scala 1'
+  };
+
+  scala2RadioConfig = {
+    x: canvas.width - 10 - 200,
+    y: 0 + 10 + 100,
+    width: 100,
+    height: 100,
+    borderWidth: 2,
+    fontSize: '20',
+    text: 'Scala 2'
+  };
+
+  scala3RadioConfig = {
+    x: canvas.width - 10 - 100,
+    y: 0 + 10 + 100,
+    width: 100,
+    height: 100,
+    borderWidth: 2,
+    fontSize: '20',
+    text: 'Scala 3'
+  };
+  return { scala1RadioConfig, scala2RadioConfig, scala3RadioConfig };
+}
+
+function callbackRadioButton(scala, indice) {
+  if (scala.attivato) {
+    return;
+  }
+  //disattiva il bottone vecchio
+  radioGroupScala[bottoneSelezionato].attivato = false;
+  //attiva il nuovo bottone
+  radioGroupScala[indice].attivato = true;
+  bottoneSelezionato = indice;
+  frequenzeScelte = scala;
+  renderCanvas();
+}
+
+
 function returnEmptyTrack() {
   let emptyTrack = [];
   for (let i = 0; i < maxLength; i++) {
@@ -189,29 +323,9 @@ function returnEmptyTrack() {
   return emptyTrack;
 }
 
-
 function pushaBottoni(track, position) {
   for (let i = 0; i < track.length; i++) {
-    let configBottoni = {
-      //posizionali in 1 righe e 32 colonne in modo da occupare n righe , sono alti 30 px e una riga è lunga quanto la larghezza del canvas
-      x: i * 32 + 200,
-      y: position * 32 + 200,
-      width: 32,
-      height: 32,
-      color: track[i] === 'x' ? '#f00' : '#0f0',
-      borderColor: track[i] === 'x' ? '#f00' : '#000',
-      borderWidth: 2,
-      text: track[i],
-      font: 'Arial',
-      fontSize: '10',
-      fontColor: track[i] === 'x' ? '#fff' : '#000',
-      toggleText: track[i] === 'x' ? '0' : 'x',
-      toggleColor: track[i] === 'x' ? '#000' : '#fff',
-      toggleFontColor: track[i] === 'x' ? '#000' : '#fff',
-      toggleBorderColor: track[i] === 'x' ? '#000' : '#fff',
-      toggleBorderWidth: 2,
-      hoverColor: '#f00',
-    }
+    let configBottoni = pulsantiera(i, position, track)
     let bottone = new Button(configBottoni, ctx, () => {
       if (track[i] === 'x') {
         track[i] = '0';
@@ -224,82 +338,114 @@ function pushaBottoni(track, position) {
   }
 }
 
+function pulsantiera(i, position, track) {
+  let altezzaPulsante = canvas.height / maxLength;
+  return {
+    x: i * (canvas.width / maxLength),
+    y: altezzaPulsante + (position * altezzaPulsante) + canvas.height * 0.755,
+    width: canvas.width / maxLength,
+    height: altezzaPulsante,
+    color: track[i] === 'x' ? '#f00' : '#0f0',
+    borderColor: track[i] === 'x' ? '#f00' : '#000',
+    borderWidth: 1,
+    text: track[i],
+    font: 'Arial',
+    fontSize: '10',
+    fontColor: track[i] === 'x' ? '#fff' : '#000',
+    toggleText: track[i] === 'x' ? '0' : 'x',
+    toggleColor: track[i] === 'x' ? '#000' : '#fff',
+    toggleFontColor: track[i] === 'x' ? '#000' : '#fff',
+    toggleBorderColor: track[i] === 'x' ? '#000' : '#fff',
+    toggleBorderWidth: 1,
+    hoverColor: '#f00',
+  };
+}
+
 function tick() {
-  //gainNode.gain.setValueAtTime(0, 0);
-  gainNodePad.gain.setValueAtTime(0, timerScheduler.contextPlayTime);
-  if (kickTrack[timerScheduler.rhythmIndex] === 'x') {
-    playSound(audioBufferKick);
-  }
-  if (snareTrack[timerScheduler.rhythmIndex] === 'x') {
-    playSound(audioBufferSnare);
-  }
-  if (hithtTrack[timerScheduler.rhythmIndex] === 'x') {
-    playSound(audioBufferhitht);
-  }
-  if (voxTrack[timerScheduler.rhythmIndex] === 'x') {
-    playSound(audioBufferVox);
-  }
+  if (isStarted) {
+    gainNodeOscPanner.gain.value = 1;
+    oscPanner.frequency.value = timerScheduler.bpm / 120 * 0.5;
 
-  if (bassTrack[timerScheduler.rhythmIndex] === 'x') {
-    gainNode.gain.setValueAtTime(0.2, 0);
-    //vai a zero in un quarto di secondo con una curva
-    gainNode.gain.setValueAtTime(0, timerScheduler.contextPlayTime + 0.65);
+    if (kickTrack[timerScheduler.rhythmIndex] === 'x') {
+      playSound(audioBufferKick);
+    }
 
- //   mainBass.frequency.setValueAtTime(freqArmoniche[counterFreqArmoniche]* 0.5, 0);
-    //effetto legato
-    mainBass.frequency.linearRampToValueAtTime(freqArmoniche[counterFreqArmoniche] * 0.5, timerScheduler.contextPlayTime + 0.35);
-  }
-  if (padTrack[timerScheduler.rhythmIndex] === 'x') {
-    const randomNote = freqArmoniche[Math.floor(Math.random() * freqArmoniche.length)];
-    gainNodePad.gain.setValueAtTime(0.5, timerScheduler.contextPlayTime);
-    //SUONA UNA NOTA CASUALE DELLA LISTA FREQARMONICHE
-    //alza di 2 ottava la frequenza della nota
-    mainPad.frequency.setValueAtTime(randomNote * 4, timerScheduler.contextPlayTime);
-  }
+    if (snareTrack[timerScheduler.rhythmIndex] === 'x') {
+      playSound(audioBufferSnare);
+    }
 
-  if(counterFreqArmoniche === freqArmoniche.length-1) {
-    counterFreqArmoniche = 0;
-  } else {
-    counterFreqArmoniche++;
-  }
+    if (hithtTrack[timerScheduler.rhythmIndex] === 'x') {
+      playSound(audioBufferhitht);
+    }
 
+    if (voxTrack[timerScheduler.rhythmIndex] === 'x') {
+      playSound(audioBufferVox);
+    }
+
+    if (bassTrack[timerScheduler.rhythmIndex] === 'x') {
+      gainNodeOscMainBass.gain.value = 0.1;
+      filterMainBass.frequency.setValueAtTime(3000, 0);
+      if (!holdMainBass) {
+        let tempoStep = 60 / (timerScheduler.bpm * 4);
+        filterMainBass.frequency.setValueAtTime(0, tempoStep + timerScheduler.contextPlayTime);
+      }
+      mainBass.frequency.setValueAtTime(frequenzeScelte[timerScheduler.rhythmIndex] * 0.5, 0);
+    }
+    if (padTrack[timerScheduler.rhythmIndex] === 'x') {
+      gainNodePad.gain.value = 1;
+      gainNodePad.gain.setValueAtTime(0, timerScheduler.contextPlayTime);
+      mainPad.frequency.setValueAtTime(frequenzeScelte[timerScheduler.rhythmIndex] * 0.5, timerScheduler.contextPlayTime);
+    }
+  }
   renderCanvas();
+}
+
+
+function spostaRandomicamenteGliElementiDiUnArray(array) {
+  const newArray = [];
+  //il nuovo array deve essere lungo 32
+  for (let i = 0; i < maxLength / 2; i++) {
+    let indice = Math.floor(Math.random() * array.length);
+    newArray.push(array[indice]);
+  }
+  return newArray.concat(newArray);
 }
 
 function renderCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   Common.drawRect(sfondo, ctx);
   renderizzaOggetti();
-//inventa un titolo simpatico ed enorme , che spieghi cosa fa la app e scrivilo in alto a sinistra
-
-  ctx.font = '30px Arial';
+  ctx.font = '50px Arial';
   ctx.fillStyle = '#fa0';
-  ctx.fillText('BeatBox', 10, 30);
-  ctx.fillText('by: @davvoz', 10, 60);
-  ctx.fillText('github:https://github.com/davvoz', 10, 90);
-
-  
-  //disegna una linea verticale per indicare il tempo
-  ctx.fillRect(0, canvas.height - 20, canvas.width, 1);
-  //disegna una linea orizzontale per indicare il tempo
-  ctx.fillRect(u * (canvas.width / maxLength), canvas.height - 20, 1, 20);
-  //scrivi il tempo seguendo la linea verticale
+  ctx.fillText('BeatBox', 10, 50);
   ctx.fillStyle = 'white';
   ctx.fillRect(timerScheduler.rhythmIndex * (canvas.width / maxLength), canvas.height - 20, canvas.width - timerScheduler.rhythmIndex * (canvas.width / maxLength), 20);
+  //scrivi il numero di  battute
+
+  ctx.fillRect(timerScheduler.rhythmIndex * (canvas.width / maxLength) + 10, canvas.height - 100, 20, 100);
+  //scrivi al centro enorme  counterFreqArmoniche
+
+  //scrivi frequenzeScelte[counterFreqArmoniche]
+  ctx.fillText(frequenzeScelte[timerScheduler.rhythmIndex], canvas.width / 2, canvas.height / 2 + 100);
+  //scrivi counterFreqArmoniche
+  ctx.fillText(timerScheduler.rhythmIndex, canvas.width / 2, canvas.height / 2 + 150);
+  //isStarted
+  ctx.fillText(isStarted, canvas.width / 2, canvas.height / 2 + 200);
 
 }
 function playSound(buffer) {
-  // creates a sound source from buffer just loaded
   var source = audioCtx.createBufferSource();
   source.buffer = buffer;                    // tell the source which sound to play
   source.connect(audioCtx.destination);       // connect source to context's destination (the speakers)
   source.start(0);                           // play the source now
 }
+
 function renderizzaOggetti() {
   oggettiRenderizzabili.forEach(function (oggetto) {
     oggetto.draw();
   });
 }
+
 function playSoundReverb(buffer) {
   const source = audioCtx.createBufferSource();
   source.buffer = buffer;
